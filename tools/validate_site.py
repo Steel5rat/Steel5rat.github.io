@@ -305,9 +305,10 @@ def validate_workflow(errors: list[str]) -> None:
     workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
     required = [
         "python3 tools/validate_site.py",
-        "actions/configure-pages@v5",
-        "actions/upload-pages-artifact@v4",
-        "actions/deploy-pages@v4",
+        "actions/checkout@v7",
+        "actions/configure-pages@v6",
+        "actions/upload-pages-artifact@v5",
+        "actions/deploy-pages@v5",
         "path: site",
         "pages: write",
         "id-token: write",
