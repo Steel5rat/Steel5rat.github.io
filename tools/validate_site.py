@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Validate the RFC-0009 static-site contract without third-party packages."""
+"""Validate the LuckyLaunch static site and current privacy disclosure."""
 
 from __future__ import annotations
 
 import re
 import sys
+from datetime import datetime
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -17,6 +18,7 @@ WORKFLOW_PATH = REPOSITORY_ROOT / ".github" / "workflows" / "pages.yml"
 EMAIL = "ivan.rubanau@gmail.com"
 LEGAL_NAME = "Cudouna Rubanau OÜ"
 BASE_URL = "https://steel5rat.github.io/"
+ALLOWED_PRIVACY_LINK = "https://policies.google.com/privacy"
 MAX_BLOCKING_BYTES = 50 * 1024
 
 
@@ -34,6 +36,8 @@ class SiteParser(HTMLParser):
         self.h1s: list[str] = []
         self.h2s: list[str] = []
         self.paragraphs: list[str] = []
+        self.definition_terms: list[str] = []
+        self.definition_values: list[str] = []
         self.anchors: list[tuple[str, str]] = []
         self._capture: list[tuple[str, list[str], str | None]] = []
 
@@ -43,7 +47,7 @@ class SiteParser(HTMLParser):
         element_id = attr_map.get("id")
         if element_id:
             self.ids.add(element_id)
-        if tag in {"title", "h1", "h2", "p"}:
+        if tag in {"title", "h1", "h2", "p", "dt", "dd"}:
             self._capture.append((tag, [], None))
         elif tag == "a":
             self._capture.append((tag, [], attr_map.get("href")))
@@ -61,6 +65,10 @@ class SiteParser(HTMLParser):
             self.h2s.append(value)
         elif captured_tag == "p":
             self.paragraphs.append(value)
+        elif captured_tag == "dt":
+            self.definition_terms.append(value)
+        elif captured_tag == "dd":
+            self.definition_values.append(value)
         elif captured_tag == "a":
             self.anchors.append((href or "", value))
 
@@ -170,7 +178,8 @@ def validate_common(page_path: Path, parser: SiteParser, errors: list[str]) -> N
             if value.startswith("http://") or value.startswith("//"):
                 fail(errors, f"{relative}: insecure or protocol-relative URL: {value}")
             if value.startswith("https://"):
-                if not (tag == "link" and attrs.get("rel") == "canonical"):
+                if not ((tag == "link" and attrs.get("rel") == "canonical") or
+                        (page_path == SITE_ROOT / "privacy" / "index.html" and tag == "a" and value == ALLOWED_PRIVACY_LINK)):
                     fail(errors, f"{relative}: external runtime/navigation URL is prohibited: {value}")
                 continue
             if value.startswith("data:"):
@@ -218,6 +227,19 @@ def validate_landing(parser: SiteParser, errors: list[str]) -> None:
         fail(errors, "site/index.html: privacy links must target the project-relative privacy route")
 
 
+def validate_policy_dates(parser: SiteParser, errors: list[str]) -> None:
+    if parser.definition_terms != ["Effective date", "Last updated"] or len(parser.definition_values) != 2:
+        fail(errors, "site/privacy/index.html: effective and last-updated dates must both be present")
+        return
+    try:
+        effective, updated = [datetime.strptime(value, "%B %d, %Y").date() for value in parser.definition_values]
+    except ValueError:
+        fail(errors, "site/privacy/index.html: policy dates must use Month day, year format")
+        return
+    if updated < effective:
+        fail(errors, "site/privacy/index.html: last-updated date precedes effective date")
+
+
 def validate_privacy(parser: SiteParser, errors: list[str]) -> None:
     expected_sections = [
         "Who we are",
@@ -237,26 +259,17 @@ def validate_privacy(parser: SiteParser, errors: list[str]) -> None:
         fail(errors, "site/privacy/index.html: incorrect h1")
     if parser.h2s != expected_sections:
         fail(errors, "site/privacy/index.html: policy sections are missing or out of order")
-    if parser.text.count("October 18, 2026") != 2:
-        fail(errors, "site/privacy/index.html: effective and updated dates must both be present")
+    validate_policy_dates(parser, errors)
 
     required_paragraphs = [
-        "LuckyLaunch collects only non-personal analytics data used for its on-device History feature.",
-        "This data stays on your device and is never sent to Cudouna Rubanau OÜ or a third-party analytics service.",
-        "LuckyLaunch collects zero personal information.",
-        "LuckyLaunch contains no advertising SDKs and does not show ads.",
+        "Your mix and History stay on your device. Usage analytics is optional.",
+        "Consented analytics uses a pseudonymous app-instance identifier. Depending on applicable law, this can be personal data.",
+        "LuckyLaunch shows no ads and does not use Analytics data for advertising.",
         "LuckyLaunch processes no in-app payments or purchases.",
     ]
     for paragraph in required_paragraphs:
         if paragraph not in parser.paragraphs:
             fail(errors, f"site/privacy/index.html: missing exact required clause: {paragraph}")
-    first = required_paragraphs[0]
-    qualification = required_paragraphs[1]
-    if first in parser.paragraphs:
-        position = parser.paragraphs.index(first)
-        if position + 1 >= len(parser.paragraphs) or parser.paragraphs[position + 1] != qualification:
-            fail(errors, "site/privacy/index.html: on-device qualification must immediately follow the first required clause")
-
     required_phrases = [
         "time of a successful dispatch",
         "at most the newest 50 records",
@@ -264,19 +277,36 @@ def validate_privacy(parser: SiteParser, errors: list[str]) -> None:
         "Clear history",
         "uninstalling LuckyLaunch",
         "Android's application sandbox",
-        "No storage method can be promised to be absolutely secure",
+        "No storage or transmission method can be promised to be absolutely secure",
         "cloud synchronization",
         "crash-reporting service",
         "ordinary web request data",
         "sets no cookies",
         "same URL with a revised last-updated date",
         "This voluntary contact is separate from LuckyLaunch app data",
+        "Google Analytics for Firebase",
+        "Share usage analytics",
+        "two months",
+        "standard aggregate reports may remain longer",
+        "app-instance identifier",
+        "exact chances",
+        "does not immediately delete data already sent",
     ]
     for phrase in required_phrases:
         if phrase not in parser.text:
             fail(errors, f"site/privacy/index.html: missing disclosure: {phrase}")
     if not any(href == "../" and text == "Organization website" for href, text in parser.anchors):
         fail(errors, "site/privacy/index.html: missing link back to the organization website")
+    if (ALLOWED_PRIVACY_LINK, "Google's Privacy Policy") not in parser.anchors:
+        fail(errors, "site/privacy/index.html: missing Google privacy link")
+    obsolete_claims = [
+        "collects zero personal information",
+        "never sent to Cudouna Rubanau OÜ or a third-party analytics service",
+        "no user account, cloud synchronization, backend service, remote analytics",
+    ]
+    for claim in obsolete_claims:
+        if claim.lower() in parser.text.lower():
+            fail(errors, f"site/privacy/index.html: obsolete no-analytics claim: {claim}")
 
 
 def validate_source_hygiene(errors: list[str]) -> None:
@@ -352,7 +382,7 @@ def main() -> int:
 
     root_bytes = (SITE_ROOT / "index.html").stat().st_size + CSS_PATH.stat().st_size
     privacy_bytes = (SITE_ROOT / "privacy" / "index.html").stat().st_size + CSS_PATH.stat().st_size
-    print("RFC-0009 site contract: PASS")
+    print("LuckyLaunch site contract: PASS")
     print(f"Root blocking payload: {root_bytes} bytes")
     print(f"Privacy blocking payload: {privacy_bytes} bytes")
     print("Requests per page: 2 (HTML + shared CSS)")
