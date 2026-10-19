@@ -262,7 +262,7 @@ def validate_privacy(parser: SiteParser, errors: list[str]) -> None:
     validate_policy_dates(parser, errors)
 
     required_paragraphs = [
-        "Your mix and History stay on your device. Usage analytics is optional.",
+        "History stays on your device. Sharing your app choices and chances is optional.",
         "Consented analytics uses a pseudonymous app-instance identifier. Depending on applicable law, this can be personal data.",
         "LuckyLaunch shows no ads and does not use Analytics data for advertising.",
         "LuckyLaunch processes no in-app payments or purchases.",
@@ -289,7 +289,9 @@ def validate_privacy(parser: SiteParser, errors: list[str]) -> None:
         "two months",
         "standard aggregate reports may remain longer",
         "app-instance identifier",
-        "exact chances",
+        "exact configured chance",
+        "package names of the apps in your current saved mix and later saved changes",
+        "Package names can reveal the kinds of apps you use.",
         "does not immediately delete data already sent",
     ]
     for phrase in required_phrases:
@@ -303,6 +305,7 @@ def validate_privacy(parser: SiteParser, errors: list[str]) -> None:
         "collects zero personal information",
         "never sent to Cudouna Rubanau OÜ or a third-party analytics service",
         "no user account, cloud synchronization, backend service, remote analytics",
+        "do not send local mix and History records",
     ]
     for claim in obsolete_claims:
         if claim.lower() in parser.text.lower():
