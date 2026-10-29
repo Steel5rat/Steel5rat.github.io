@@ -1,9 +1,10 @@
 # Cudouna Rubanau OÜ website
 
-This public repository contains the static Cudouna Rubanau OÜ organization website and the LuckyLaunch Android app privacy policy.
+This public repository contains the static Cudouna Rubanau OÜ organization website and privacy policies for the LuckyLaunch and Halera Android apps.
 
 - Organization website: <https://steel5rat.github.io/>
 - LuckyLaunch privacy policy: <https://steel5rat.github.io/privacy/>
+- Halera privacy policy: <https://steel5rat.github.io/halera/privacy/>
 
 The deployable files live in [`site/`](./site). The website uses plain semantic HTML and CSS with no JavaScript, backend, analytics, advertising, cookies, or external runtime assets.
 

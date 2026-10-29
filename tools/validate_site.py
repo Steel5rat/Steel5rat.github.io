@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the LuckyLaunch static site and current privacy disclosure."""
+"""Validate the organization site and its app privacy disclosures."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from urllib.parse import unquote, urlsplit
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 SITE_ROOT = REPOSITORY_ROOT / "site"
+HALERA_PRIVACY_PATH = SITE_ROOT / "halera" / "privacy" / "index.html"
 CSS_PATH = SITE_ROOT / "styles.css"
 WORKFLOW_PATH = REPOSITORY_ROOT / ".github" / "workflows" / "pages.yml"
 EMAIL = "ivan.rubanau@gmail.com"
@@ -312,6 +313,35 @@ def validate_privacy(parser: SiteParser, errors: list[str]) -> None:
             fail(errors, f"site/privacy/index.html: obsolete no-analytics claim: {claim}")
 
 
+def validate_halera_privacy(parser: SiteParser, errors: list[str]) -> None:
+    label = "site/halera/privacy/index.html"
+    if parser.titles != ["Privacy Policy for Halera — Cudouna Rubanau OÜ"]:
+        fail(errors, f"{label}: incorrect title")
+    if parser.h1s != ["Privacy Policy for Halera"]:
+        fail(errors, f"{label}: incorrect h1")
+    required_sections = ["Who we are", "Scope", "Game data on your device",
+                         "Retention and deletion", "Security", "Contact and requests",
+                         "Changes to this policy"]
+    if parser.h2s != required_sections:
+        fail(errors, f"{label}: policy sections are missing or out of order")
+    for phrase in ("sesterces", "cargo openings", "ship appearance", "voyage activity",
+                   "no account", "no app network permission", "no guaranteed backup",
+                   "uninstall", "Android's application sandbox", "GitHub Pages"):
+        if phrase.lower() not in parser.text.lower():
+            fail(errors, f"{label}: missing disclosure: {phrase}")
+    if parser.definition_terms != ["Effective date", "Last updated"] or len(parser.definition_values) != 2:
+        fail(errors, f"{label}: policy dates are missing")
+    else:
+        try:
+            effective, updated = [datetime.strptime(value, "%B %d, %Y").date() for value in parser.definition_values]
+            if updated < effective:
+                fail(errors, f"{label}: last-updated date precedes effective date")
+        except ValueError:
+            fail(errors, f"{label}: dates must use Month day, year format")
+    if not any(href == "../../" and text == "Organization website" for href, text in parser.anchors):
+        fail(errors, f"{label}: missing organization website link")
+
+
 def validate_source_hygiene(errors: list[str]) -> None:
     forbidden = re.compile(
         r"\b(?:TODO|TBD)\b|lorem ipsum|example\.(?:com|org|net)|placeholder|(?:verification|site)[-_ ]token",
@@ -354,7 +384,8 @@ def validate_workflow(errors: list[str]) -> None:
 
 def main() -> int:
     errors: list[str] = []
-    required_files = [SITE_ROOT / "index.html", SITE_ROOT / "privacy" / "index.html", CSS_PATH, SITE_ROOT / ".nojekyll"]
+    required_files = [SITE_ROOT / "index.html", SITE_ROOT / "privacy" / "index.html",
+                      HALERA_PRIVACY_PATH, CSS_PATH, SITE_ROOT / ".nojekyll"]
     for path in required_files:
         if not path.is_file():
             fail(errors, f"{path.relative_to(REPOSITORY_ROOT)}: required file is missing")
@@ -364,7 +395,7 @@ def main() -> int:
         return 1
 
     parsed: dict[Path, SiteParser] = {}
-    for page_path in required_files[:2]:
+    for page_path in required_files[:3]:
         parser = SiteParser()
         parser.feed(page_path.read_text(encoding="utf-8"))
         parser.close()
@@ -373,6 +404,7 @@ def main() -> int:
 
     validate_landing(parsed[SITE_ROOT / "index.html"], errors)
     validate_privacy(parsed[SITE_ROOT / "privacy" / "index.html"], errors)
+    validate_halera_privacy(parsed[HALERA_PRIVACY_PATH], errors)
     if len({parser.titles[0] for parser in parsed.values() if parser.titles}) != len(parsed):
         fail(errors, "site pages must have unique titles")
     validate_source_hygiene(errors)
@@ -385,7 +417,7 @@ def main() -> int:
 
     root_bytes = (SITE_ROOT / "index.html").stat().st_size + CSS_PATH.stat().st_size
     privacy_bytes = (SITE_ROOT / "privacy" / "index.html").stat().st_size + CSS_PATH.stat().st_size
-    print("LuckyLaunch site contract: PASS")
+    print("Organization site contract: PASS")
     print(f"Root blocking payload: {root_bytes} bytes")
     print(f"Privacy blocking payload: {privacy_bytes} bytes")
     print("Requests per page: 2 (HTML + shared CSS)")
