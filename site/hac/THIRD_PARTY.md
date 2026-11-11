@@ -1,0 +1,9 @@
+# Data and software credits
+
+- Forecast service: [Open-Meteo](https://open-meteo.com/). Personal, noncommercial free API. Weather data [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Wind and gusts: NOAA GFS Global. Significant wave height and mean period: ECMWF WAM, with NOAA/NCEP GFS Wave 0.25° filling unavailable values. Requests cover up to 16 days; actual coverage depends on each model run. [Weather documentation](https://open-meteo.com/en/docs/gfs-api), [marine documentation](https://open-meteo.com/en/docs/marine-weather-api).
+- Geocoding: Open-Meteo / [GeoNames](https://www.geonames.org/) ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)).
+- Coastline: [Natural Earth](https://www.naturalearthdata.com/about/terms-of-use/), public domain, through [world-atlas](https://github.com/topojson/world-atlas), ISC. 1:10m for land avoidance, 1:50m for the overview chart; scale is not metre accuracy.
+- [Leaflet](https://github.com/Leaflet/Leaflet/blob/main/LICENSE): BSD-2-Clause. [topojson-client](https://github.com/topojson/topojson-client/blob/master/LICENSE): ISC. [Flatbush](https://github.com/mourner/flatbush/blob/main/LICENSE): ISC. [webextension-polyfill](https://github.com/mozilla/webextension-polyfill/blob/master/LICENSE): MPL-2.0.
+- [d3-geo](https://github.com/d3/d3-geo), [d3-geo-projection](https://github.com/d3/d3-geo-projection), [d3-array](https://github.com/d3/d3-array), [InternMap](https://github.com/mbostock/internmap): ISC. Coastline polygons are cut at the antimeridian before planar display and routing.
+
+Wave comfort bands are application assumptions for a 42 ft (12.8 m) boat, not certified vessel limits. The wavelength estimate `L = g T² / (2π)` assumes deep water. Mean model wave period is not encounter period. Navigation, breaking waves, heading, tides, currents, depth and boat stability are outside this model.

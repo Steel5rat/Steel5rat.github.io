@@ -2,11 +2,38 @@
 
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
+
+from tools import validate_site
 
 from tools.validate_site import REPOSITORY_ROOT, SITE_ROOT, SiteParser, normalize, resolve_local, validate_policy_dates
 
 
 class SiteValidatorTest(unittest.TestCase):
+    def test_source_hygiene_keeps_org_checks_and_allows_built_hac_assets(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory) / "site"
+            root.mkdir()
+            css = root / "styles.css"
+            css.write_text("body { color: white; }", encoding="utf-8")
+            landing = root / "index.html"
+            landing.write_text("<h1>Organization</h1>", encoding="utf-8")
+            app = root / "hac"
+            app.mkdir()
+            (app / "icon.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+            (app / "app.js").write_text('const placeholder = "http://www.w3.org/2000/svg";', encoding="utf-8")
+            with patch.object(validate_site, "SITE_ROOT", root), \
+                    patch.object(validate_site, "REPOSITORY_ROOT", root.parent), \
+                    patch.object(validate_site, "CSS_PATH", css):
+                errors: list[str] = []
+                validate_site.validate_source_hygiene(errors)
+                self.assertEqual([], errors)
+                landing.write_text("TODO http://example.com", encoding="utf-8")
+                validate_site.validate_source_hygiene(errors)
+                self.assertTrue(any("prohibited placeholder text" in error for error in errors))
+                self.assertTrue(any("insecure URL" in error for error in errors))
+
     def test_parser_collects_nested_visible_anchor_text(self) -> None:
         parser = SiteParser()
         parser.feed('<main id="content"><h1>Policy</h1><a href="privacy/"><strong>Privacy</strong> policy</a></main>')

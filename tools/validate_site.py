@@ -350,6 +350,11 @@ def validate_source_hygiene(errors: list[str]) -> None:
     for path in sorted(SITE_ROOT.rglob("*")):
         if not path.is_file():
             continue
+        # Hac is a separately built web app with JavaScript, maps and binary icons.
+        # Its build and browser checks live in Hac; retain this contract for the
+        # organization pages and privacy policies, rather than scanning bundles.
+        if path.relative_to(SITE_ROOT).parts[0] == "hac":
+            continue
         content = path.read_text(encoding="utf-8")
         match = forbidden.search(content)
         if match:
